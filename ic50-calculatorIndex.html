@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>IC₅₀ Calculator · MTT Assay Analysis</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0D1117; --surface: #161B22; --border: #30363D;
+    --border2: #21262D; --teal: #00D4AA; --blue: #7DD3FC;
+    --red: #FF6B6B; --text: #E6EDF3; --muted: #8B949E; --dim: #484F58;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; padding: 24px; }
+  h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+  h1 sub { font-size: 16px; }
+
+.badge { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(–teal); box-shadow: 0 0 8px var(–teal); }
+.eyebrow { font-family: ‘JetBrains Mono’, monospace; font-size: 11px; letter-spacing: 3px; color: var(–teal); text-transform: uppercase; }
+.subtitle { font-size: 13px; color: var(–muted); margin-top: 6px; }
+
+.layout { display: grid; grid-template-columns: 360px 1fr; gap: 20px; margin-top: 24px; align-items: start; }
+@media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+.card { background: var(–surface); border: 1px solid var(–border); border-radius: 12px; padding: 16px; }
+.left-col { display: flex; flex-direction: column; gap: 16px; }
+
+label.field-label { font-size: 11px; color: var(–muted); letter-spacing: 1px; text-transform: uppercase; display: block; margin-bottom: 6px; }
+input[type=text], input[type=number], select, textarea {
+background: var(–bg); border: 1px solid var(–border2); border-radius: 8px;
+padding: 8px 12px; color: var(–text); font-family: ‘JetBrains Mono’, monospace;
+font-size: 13px; outline: none; width: 100%; transition: border-color 0.15s;
+}
+input[type=text]:focus, input[type=number]:focus, select:focus, textarea:focus { border-color: var(–teal); }
+.row-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.tabs { display: flex; border-bottom: 1px solid var(–border); }
+.tab-btn {
+flex: 1; padding: 11px 0; background: none; border: none; cursor: pointer;
+font-family: ‘JetBrains Mono’, monospace; font-size: 12px; letter-spacing: 1px;
+text-transform: uppercase; color: var(–muted); border-bottom: 2px solid transparent;
+transition: color 0.15s, border-color 0.15s;
+}
+.tab-btn.active { color: var(–teal); border-bottom-color: var(–teal); }
+.tab-content { padding: 14px; }
+.tab-panel { display: none; } .tab-panel.active { display: block; }
+
+.data-rows { max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
+.data-row { display: grid; grid-template-columns: 1fr 1fr 28px; gap: 6px; align-items: center; }
+.data-row input { padding: 7px 10px; }
+.data-row input:nth-child(2) { color: var(–teal); }
+.col-headers { display: grid; grid-template-columns: 1fr 1fr 28px; gap: 6px; padding: 0 4px; margin-bottom: 8px; }
+.col-headers span { font-size: 10px; color: var(–muted); letter-spacing: 1px; text-transform: uppercase; }
+.remove-btn { background: none; border: none; color: var(–muted); cursor: pointer; font-size: 18px; line-height: 1; padding: 0; transition: color 0.15s; }
+.remove-btn:hover { color: var(–red); }
+
+.add-btn {
+margin-top: 10px; width: 100%; background: none; border: 1px dashed var(–border);
+border-radius: 8px; padding: 8px 0; color: var(–muted); cursor: pointer;
+font-family: ‘JetBrains Mono’, monospace; font-size: 13px; transition: all 0.15s;
+}
+.add-btn:hover { border-color: var(–teal); color: var(–teal); }
+
+.import-btn {
+margin-top: 8px; width: 100%; background: #00D4AA22; border: 1px solid var(–teal);
+border-radius: 8px; padding: 9px 0; color: var(–teal); cursor: pointer;
+font-family: ‘JetBrains Mono’, monospace; font-size: 13px; font-weight: 600;
+}
+textarea { resize: vertical; }
+
+.results-card { border-color: var(–border); transition: border-color 0.3s; }
+.results-card.has-fit { border-color: #00D4AA44; }
+.section-label { font-size: 10px; letter-spacing: 2px; color: var(–muted); text-transform: uppercase; margin-bottom: 14px; }
+.metric { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 12px; border-radius: 8px; background: #0D111744; border: 1px solid transparent; }
+.metric.accent { background: #00D4AA11; border-color: #00D4AA33; }
+.metric-label { font-size: 12px; color: var(–muted); font-family: ‘JetBrains Mono’, monospace; }
+.metric-value { font-size: 13px; font-weight: 500; color: var(–text); font-family: ‘JetBrains Mono’, monospace; }
+.metric-value.accent { font-size: 15px; font-weight: 700; color: var(–teal); }
+.metric-value.warn { color: var(–red); }
+.metrics-list { display: flex; flex-direction: column; gap: 10px; }
+.no-fit { text-align: center; padding: 12px 0; font-size: 13px; color: var(–muted); }
+
+.right-card { padding: 24px 20px 16px; }
+.chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.chart-title { font-size: 15px; font-weight: 600; }
+.chart-sub { font-size: 12px; color: var(–muted); margin-top: 2px; }
+.ic50-badge { background: #00D4AA1A; border: 1px solid #00D4AA44; border-radius: 8px; padding: 6px 14px; font-size: 13px; font-family: ‘JetBrains Mono’, monospace; color: var(–teal); }
+.chart-wrap { position: relative; height: 380px; }
+
+.legend { display: flex; gap: 20px; justify-content: center; margin-top: 12px; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(–muted); font-family: ‘JetBrains Mono’, monospace; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(–bg); }
+.legend-line { width: 20px; height: 2.5px; border-radius: 2px; }
+.legend-dash { width: 20px; border-top: 2px dashed var(–red); }
+
+.equation-box { margin-top: 16px; padding: 12px 16px; background: var(–bg); border-radius: 8px; border: 1px solid var(–border2); font-family: ‘JetBrains Mono’, monospace; font-size: 12px; color: var(–muted); line-height: 1.6; }
+.eq-y { color: var(–blue); } .eq-ic50 { color: var(–red); } .eq-n { color: var(–teal); } .eq-r2-good { color: var(–teal); } .eq-r2-ok { color: #FBBF24; }
+
+.footer { margin-top: 20px; text-align: center; font-size: 11px; color: var(–dim); font-family: ‘JetBrains Mono’, monospace; }
+select option { background: var(–surface); }
+</style>
+
+</head>
+<body>
+
+<!-- Header -->
+
+<div class="badge"><div class="dot"></div><span class="eyebrow">MTT Assay Analysis</span></div>
+<h1>IC<sub>50</sub> Calculator</h1>
+<p class="subtitle">4-Parameter Logistic (4PL) dose-response curve fitting · GraphPad-compatible</p>
+
+<div class="layout">
+  <!-- LEFT PANEL -->
+  <div class="left-col">
+
+```
+<!-- Compound settings -->
+<div class="card">
+  <label class="field-label">Compound Name</label>
+  <input type="text" id="compoundName" value="Doxorubicin"/>
+  <div class="row-grid" style="margin-top:12px;">
+    <div>
+      <label class="field-label">Unit</label>
+      <select id="unitSelect">
+        <option>µM</option><option>nM</option><option>mM</option><option>mg/mL</option><option>ng/mL</option>
+      </select>
+    </div>
+    <div>
+      <label class="field-label">Preset</label>
+      <select id="presetSelect">
+        <option value="">Load preset…</option>
+        <option>Doxorubicin</option><option>Paclitaxel</option><option>Tamoxifen</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<!-- Data input tabs -->
+<div class="card" style="padding:0; overflow:hidden;">
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('table')">📋 Table</button>
+    <button class="tab-btn" onclick="switchTab('paste')">📄 Paste</button>
+  </div>
+  <div class="tab-content">
+    <div id="tab-table" class="tab-panel active">
+      <div class="col-headers">
+        <span id="concHeader">Conc (µM)</span>
+        <span>Viability (%)</span>
+        <span></span>
+      </div>
+      <div class="data-rows" id="dataRows"></div>
+      <button class="add-btn" onclick="addRow()">+ Add Row</button>
+    </div>
+    <div id="tab-paste" class="tab-panel">
+      <p style="font-size:12px; color:var(--muted); margin-bottom:10px;">Paste tab or comma-separated data (Conc, Viability%):</p>
+      <textarea id="pasteArea" rows="8" placeholder="0.001&#9;98.2&#10;0.01&#9;96.5&#10;0.1&#9;89.1&#10;1&#9;68.4&#10;10&#9;32.7&#10;100&#9;8.3"></textarea>
+      <button class="import-btn" onclick="importPaste()">Import Data →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Results -->
+<div class="card results-card" id="resultsCard">
+  <div class="section-label">Curve Fit Results</div>
+  <div id="resultsBody"><div class="no-fit">Enter ≥ 4 data points to fit</div></div>
+</div>
+```
+
+  </div>
+
+  <!-- RIGHT PANEL -->
+
+  <div class="card right-card">
+    <div class="chart-header">
+      <div>
+        <div class="chart-title" id="chartTitle">Doxorubicin</div>
+        <div class="chart-sub" id="chartSub">Dose-Response Curve · µM</div>
+      </div>
+      <div class="ic50-badge" id="ic50Badge" style="display:none;"></div>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="myChart"></canvas>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#00D4AA;"></div>Raw data (MTT)</div>
+      <div class="legend-item"><div class="legend-line" style="background:#7DD3FC;"></div>4PL fitted curve</div>
+      <div class="legend-item"><div class="legend-dash"></div>IC₅₀ marker</div>
+    </div>
+    <div class="equation-box" id="eqBox" style="display:none;"></div>
+  </div>
+</div>
+
+<div class="footer">4PL · Nelder-Mead optimization · Bootstrap 95% CI (n=200) · R² goodness-of-fit</div>
+
+<script>
+// ─── PRESETS ─────────────────────────────────────────────────────────────────
+const PRESETS = {
+  Doxorubicin: [{c:0.001,v:98.2},{c:0.01,v:96.5},{c:0.1,v:89.1},{c:1,v:68.4},{c:10,v:32.7},{c:100,v:8.3},{c:1000,v:2.1}],
+  Paclitaxel:  [{c:0.0001,v:101.2},{c:0.001,v:99.3},{c:0.01,v:94.7},{c:0.1,v:71.2},{c:1,v:38.9},{c:10,v:14.2},{c:100,v:3.7}],
+  Tamoxifen:   [{c:0.1,v:99.1},{c:1,v:95.8},{c:5,v:82.4},{c:10,v:61.3},{c:25,v:38.7},{c:50,v:18.2},{c:100,v:6.9}],
+};
+
+// ─── 4PL MODEL ───────────────────────────────────────────────────────────────
+function fourPL(x, bot, top, ic50, h) {
+  if (x <= 0) return bot;
+  return bot + (top - bot) / (1 + Math.pow(ic50 / x, h));
+}
+
+// ─── NELDER-MEAD ─────────────────────────────────────────────────────────────
+function nelderMead(fn, p0, maxIter=5000, tol=1e-10) {
+  const n = p0.length, a=1, g=2, r=0.5, s=0.5;
+  let S = [p0.slice()];
+  for (let i=0;i<n;i++){const p=p0.slice();p[i]=p[i]?p[i]*1.05:0.00025;S.push(p);}
+  for (let it=0;it<maxIter;it++){
+    S.sort((a,b)=>fn(a)-fn(b));
+    if(fn(S[n])-fn(S[0])<tol) break;
+    const C=Array(n).fill(0);
+    for(let i=0;i<n;i++) for(let j=0;j<n;j++) C[j]+=S[i][j]/n;
+    const R=C.map((c,j)=>c+a*(c-S[n][j])), fR=fn(R);
+    if(fR<fn(S[0])){const E=C.map((c,j)=>c+g*(R[j]-c));S[n]=fn(E)<fR?E:R;}
+    else if(fR<fn(S[n-1])){S[n]=R;}
+    else{
+      const K=C.map((c,j)=>c+r*(S[n][j]-c));
+      if(fn(K)<fn(S[n])){S[n]=K;}
+      else for(let i=1;i<=n;i++) S[i]=S[0].map((b,j)=>b+s*(S[i][j]-b));
+    }
+  }
+  S.sort((a,b)=>fn(a)-fn(b));
+  return S[0];
+}
+
+// ─── FIT ─────────────────────────────────────────────────────────────────────
+function fitIC50(data) {
+  if(data.length<4) return null;
+  const xs=data.map(d=>d.c), ys=data.map(d=>d.v);
+  const cost=([bot,top,lIC,h])=>{
+    const ic=Math.exp(lIC); let e=0;
+    for(let i=0;i<xs.length;i++){const r=ys[i]-fourPL(xs[i],bot,top,ic,h);e+=r*r;}
+    return isFinite(e)?e:1e12;
+  };
+  const seeds=[
+    [0,100,Math.log(xs[Math.floor(xs.length/2)]),1],
+    [0,100,Math.log(xs[Math.floor(xs.length/2)]),2],
+    [5,105,Math.log(xs[0]),0.5],
+    [0,100,Math.log(xs[xs.length-1]),1.5],
+  ];
+  let best=null,bc=Infinity;
+  for(const s of seeds){const r=nelderMead(cost,s);const c=cost(r);if(c<bc){bc=c;best=r;}}
+  const [bot,top,lIC,h]=best, ic50=Math.exp(lIC);
+  const meanY=ys.reduce((a,b)=>a+b,0)/ys.length;
+  const ssTot=ys.reduce((s,y)=>s+Math.pow(y-meanY,2),0);
+  const ssRes=ys.reduce((s,y,i)=>s+Math.pow(y-fourPL(xs[i],bot,top,ic50,h),2),0);
+  const r2=1-ssRes/ssTot;
+  // Bootstrap CI
+  const samps=[];
+  for(let b=0;b<200;b++){
+    const boot=Array.from({length:xs.length},()=>{const i=Math.floor(Math.random()*xs.length);return{x:xs[i],y:ys[i]};});
+    const bc2=([bt,tp,lI,hs])=>{const ic=Math.exp(lI);let s=0;for(const{x,y}of boot)s+=Math.pow(y-fourPL(x,bt,tp,ic,hs),2);return isFinite(s)?s:1e12;};
+    const br=nelderMead(bc2,best.slice(),1000);
+    samps.push(Math.exp(br[2]));
+  }
+  samps.sort((a,b)=>a-b);
+  return{bot,top,ic50,h,r2,ci95Lo:samps[Math.floor(.025*samps.length)],ci95Hi:samps[Math.floor(.975*samps.length)]};
+}
+
+// ─── FORMAT ──────────────────────────────────────────────────────────────────
+function fmt(v){
+  if(!v||!isFinite(v)) return '—';
+  if(v<0.001) return `${(v*1e6).toPrecision(3)} nM`;
+  if(v<1) return `${(v*1000).toPrecision(3)} nM (${v.toPrecision(3)} µM)`;
+  if(v<1000) return `${v.toPrecision(4)} µM`;
+  return `${(v/1000).toPrecision(3)} mM`;
+}
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let rows = PRESETS.Doxorubicin.map(d=>({...d,id:Math.random()}));
+let chart = null;
+let fitTimer = null;
+
+// ─── TABS ────────────────────────────────────────────────────────────────────
+function switchTab(name){
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',['table','paste'][i]===name));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+// ─── RENDER TABLE ────────────────────────────────────────────────────────────
+function renderTable(){
+  const container=document.getElementById('dataRows');
+  container.innerHTML='';
+  rows.forEach(row=>{
+    const div=document.createElement('div');
+    div.className='data-row';
+    div.innerHTML=`
+      <input type="number" placeholder="e.g. 0.1" value="${row.c||''}" step="any" oninput="updateRow('${row.id}','c',this.value)"/>
+      <input type="number" placeholder="e.g. 50" value="${row.v!==undefined&&row.v!==''?row.v:''}" step="any" oninput="updateRow('${row.id}','v',this.value)"/>
+      <button class="remove-btn" onclick="removeRow('${row.id}')">×</button>
+    `;
+    container.appendChild(div);
+  });
+  scheduleFit();
+}
+
+function updateRow(id,field,val){rows=rows.map(r=>r.id===id?{...r,[field]:val===''?'':parseFloat(val)}:r);scheduleFit();}
+function addRow(){rows=[...rows,{c:'',v:'',id:Math.random()}];renderTable();}
+function removeRow(id){rows=rows.filter(r=>r.id!==id);renderTable();}
+
+// ─── PRESET ──────────────────────────────────────────────────────────────────
+document.getElementById('presetSelect').addEventListener('change',function(){
+  if(!this.value) return;
+  document.getElementById('compoundName').value=this.value;
+  rows=PRESETS[this.value].map(d=>({...d,id:Math.random()}));
+  renderTable(); updateChartMeta(); this.value='';
+});
+document.getElementById('compoundName').addEventListener('input',updateChartMeta);
+document.getElementById('unitSelect').addEventListener('change',()=>{
+  document.getElementById('concHeader').textContent=`Conc (${document.getElementById('unitSelect').value})`;
+  updateChartMeta(); scheduleFit();
+});
+
+function updateChartMeta(){
+  const name=document.getElementById('compoundName').value||'Compound';
+  const unit=document.getElementById('unitSelect').value;
+  document.getElementById('chartTitle').textContent=name;
+  document.getElementById('chartSub').textContent=`Dose-Response Curve · ${unit}`;
+}
+
+// ─── PASTE IMPORT ─────────────────────────────────────────────────────────────
+function importPaste(){
+  const lines=document.getElementById('pasteArea').value.trim().split('\n').filter(Boolean);
+  const parsed=[];
+  for(const l of lines){
+    const p=l.split(/[\t,;]+/);
+    if(p.length>=2){const c=parseFloat(p[0]),v=parseFloat(p[1]);if(isFinite(c)&&isFinite(v))parsed.push({c,v,id:Math.random()});}
+  }
+  if(parsed.length>0){rows=parsed;renderTable();switchTab('table');}
+}
+
+// ─── FIT & CHART ─────────────────────────────────────────────────────────────
+function scheduleFit(){clearTimeout(fitTimer);fitTimer=setTimeout(runFit,300);}
+
+function runFit(){
+  const valid=rows.filter(r=>r.c>0&&isFinite(r.v)&&r.c!==''&&r.v!=='');
+  const unit=document.getElementById('unitSelect').value;
+  const result=valid.length>=4?fitIC50(valid):null;
+  updateResults(result,valid.length);
+  updateChart(valid,result,unit);
+}
+
+function updateResults(r,n){
+  const card=document.getElementById('resultsCard');
+  const body=document.getElementById('resultsBody');
+  card.classList.toggle('has-fit',!!r);
+  const badge=document.getElementById('ic50Badge');
+  const eqBox=document.getElementById('eqBox');
+  if(!r){
+    body.innerHTML=`<div class="no-fit">${n<4?'Enter ≥ 4 data points to fit':'Fitting…'}</div>`;
+    badge.style.display='none'; eqBox.style.display='none'; return;
+  }
+  badge.style.display=''; badge.textContent=`IC₅₀ = ${fmt(r.ic50)}`;
+  const metrics=[
+    {label:'IC₅₀',value:fmt(r.ic50),accent:true,large:true},
+    {label:'95% CI',value:`${fmt(r.ci95Lo)} – ${fmt(r.ci95Hi)}`},
+    {label:'Hill Slope',value:r.h.toFixed(3)},
+    {label:'Bottom',value:`${r.bot.toFixed(2)}%`},
+    {label:'Top',value:`${r.top.toFixed(2)}%`},
+    {label:'R²',value:r.r2.toFixed(4),good:r.r2>0.99,warn:r.r2<0.95},
+  ];
+  body.innerHTML=`<div class="metrics-list">${metrics.map(m=>`
+    <div class="metric${m.accent?' accent':''}">
+      <span class="metric-label">${m.label}</span>
+      <span class="metric-value${m.accent?' accent':''}${m.warn?' warn':''}">${m.value}</span>
+    </div>`).join('')}
+    <div class="metric"><span class="metric-label">n</span><span class="metric-value">${n} points · 4PL</span></div>
+  </div>`;
+  eqBox.style.display='';
+  const r2cls=r.r2>0.99?'eq-r2-good':'eq-r2-ok';
+  eqBox.innerHTML=`<span class="eq-y">Y</span> = ${r.bot.toFixed(2)} + (${r.top.toFixed(2)} − ${r.bot.toFixed(2)}) / (1 + (<span class="eq-ic50">${r.ic50.toPrecision(4)}</span> / X)<sup><span class="eq-n">${r.h.toFixed(3)}</span></sup>) &nbsp;·&nbsp; R² = <span class="${r2cls}">${r.r2.toFixed(4)}</span>`;
+}
+
+function updateChart(valid,result,unit){
+  const ctx=document.getElementById('myChart').getContext('2d');
+  if(chart){chart.destroy();chart=null;}
+  if(valid.length===0) return;
+
+  const xs=valid.map(d=>d.c);
+  const xMin=Math.min(...xs), xMax=Math.max(...xs);
+  const lMin=Math.floor(Math.log10(xMin))-0.5, lMax=Math.ceil(Math.log10(xMax))+0.5;
+
+  // Scatter points
+  const scatter=valid.map(d=>({x:d.c,y:d.v}));
+
+  // Curve
+  const curveData=[];
+  if(result){
+    for(let i=0;i<=200;i++){
+      const lx=lMin+(i/200)*(lMax-lMin);
+      const x=Math.pow(10,lx);
+      curveData.push({x,y:Math.max(0,Math.min(110,fourPL(x,result.bot,result.top,result.ic50,result.h)))});
+    }
+  }
+
+  // IC50 vertical annotation
+  const annotations={};
+  if(result){
+    annotations.ic50line={type:'line',xMin:result.ic50,xMax:result.ic50,borderColor:'#FF6B6B',borderWidth:1.5,borderDash:[6,3],label:{content:'IC₅₀',display:true,position:'start',color:'#FF6B6B',font:{family:"'JetBrains Mono', monospace",size:11},backgroundColor:'transparent',yAdjust:-14}};
+    annotations.halfline={type:'line',yMin:50,yMax:50,borderColor:'#FF6B6B44',borderWidth:1,borderDash:[6,3]};
+  }
+
+  // Generate log ticks
+  const ticks=[];
+  for(let l=Math.floor(lMin);l<=Math.ceil(lMax);l++) ticks.push(Math.pow(10,l));
+
+  chart=new Chart(ctx,{
+    type:'scatter',
+    data:{
+      datasets:[
+        result?{label:'4PL fit',data:curveData,type:'line',borderColor:'#7DD3FC',borderWidth:2.5,pointRadius:0,tension:0.4,fill:false,order:2}:null,
+        {label:'Raw data',data:scatter,backgroundColor:'#00D4AA',borderColor:'#0D1117',borderWidth:1.5,pointRadius:6,pointHoverRadius:8,order:1},
+      ].filter(Boolean)
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      animation:{duration:400},
+      scales:{
+        x:{type:'logarithmic',min:Math.pow(10,lMin),max:Math.pow(10,lMax),
+          grid:{color:'#21262D'},
+          ticks:{color:'#8B949E',font:{family:"'JetBrains Mono', monospace",size:11},
+            callback:v=>{
+              if(v<0.001) return `${(v*1e6).toFixed(0)}p`;
+              if(v<1) return `${(v*1000).toFixed(0)}n`;
+              if(v<1000) return `${+v.toFixed(4)}`;
+              return `${(v/1000).toFixed(0)}k`;
+            }
+          },
+          title:{display:true,text:`Concentration (${unit})`,color:'#8B949E',font:{family:'Inter',size:12}}
+        },
+        y:{min:-5,max:115,
+          grid:{color:'#21262D'},
+          ticks:{color:'#8B949E',font:{family:"'JetBrains Mono', monospace",size:11},stepSize:25},
+          title:{display:true,text:'Cell Viability (%)',color:'#8B949E',font:{family:'Inter',size:12}}
+        }
+      },
+      plugins:{
+        legend:{display:false},
+        tooltip:{backgroundColor:'#161B22',borderColor:'#30363D',borderWidth:1,
+          titleColor:'#8B949E',bodyColor:'#E6EDF3',
+          titleFont:{family:"'JetBrains Mono', monospace",size:11},
+          bodyFont:{family:"'JetBrains Mono', monospace",size:12},
+          callbacks:{
+            title:items=>`Conc: ${items[0].parsed.x.toPrecision(3)} ${unit}`,
+            label:item=>`Viability: ${item.parsed.y.toFixed(1)}%`
+          }
+        },
+        annotation:annotations
+      }
+    },
+    plugins:[{
+      id:'bg',
+      beforeDraw(chart){
+        const{ctx,chartArea:{left,top,right,bottom}}=chart;
+        ctx.save();ctx.fillStyle='#0D1117';ctx.fillRect(left,top,right-left,bottom-top);ctx.restore();
+      }
+    }]
+  });
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+renderTable();
+runFit();
+</script>
+
+</body>
+</html>
